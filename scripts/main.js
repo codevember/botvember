@@ -3,6 +3,7 @@ const Twit = require('twit')
 const key = require('../config/config.json')
 const phantom = require('phantom')
 const firebase = require('firebase')
+const blacklist = require('../config/blacklist.json')
 
 firebase.initializeApp({
   serviceAccount: './config/database.json',
@@ -17,16 +18,23 @@ const T = new Twit({
 const db = firebase.database()
 const ref = db.ref('contributions')
 const filter = '#codevember'
-
 let stream = T.stream('statuses/filter', { track: filter })
 console.log(`Stream Started : ${filter}`)
 stream.on('tweet', (tweet) => {
-  if (!tweet.retweeted && tweet.entities.urls[0]) {
+  var blacklisted = false
+  blacklist.users.forEach((user) => {
+    if (user === tweet.user.screen_name) {
+      blacklisted = true
+    }
+  })
+  if (!tweet.retweeted && tweet.entities.urls[0] && !blacklisted) {
     var penData
     tweet.entities.urls[0].expanded_url && (penData = expendUrl(tweet.entities.urls[0].expanded_url))
-    penData.screen_name = tweet.user.screen_name
-    penData.penDetails && createDocument(penData)
-    favTweet(tweet.id_str)
+    if (penData) {
+      penData.screen_name = tweet.user.screen_name
+      penData.penDetails && createDocument(penData)
+      favTweet(tweet.id_str)
+    }
   }
 })
 
@@ -34,8 +42,12 @@ function expendUrl (url) {
   const reg = /(https:\/\/www\.)?codepen\.io\/([a-zA-Z0-9@:%_]*)\/(pen|full)?\/([a-zA-Z0-9@:%_]*)/gim
   var regResult = reg.exec(url)
   var data = {}
-  data.user = regResult[2]
-  data.pen = regResult[4]
+  if (regResult !== null) {
+    data.user = regResult[2]
+    data.pen = regResult[4]
+  } else {
+    return null
+  }
   data.penUrl = `http://codepen.io/${data.user}/pen/${data.pen}`
   data.fullUrl = `http://codepen.io/${data.user}/full/${data.pen}`
   data.imgUrl = `http://codepen.io/${data.user}/pen/${data.pen}/image/small.png`
@@ -77,7 +89,13 @@ function createDocument (data) {
         data.date = html[1].trim().split(/\s* \s*/)
         data.date[1] = data.date[1].slice(0, -1)
         data.day = parseInt(data.date[1], 10)
-        postDb(data)
+        var year = parseInt(data.date[2], 10)
+        if (year === 2016) {
+          postDb(data)
+          phInstance.exit()
+        } else {
+          phInstance.exit()
+        }
       })
     })
     .catch(error => {
@@ -86,7 +104,6 @@ function createDocument (data) {
     })
 }
 function postDb (data) {
-  console.log(data)
   new Promise((resolve, reject) => {
     ref.once('value').then((snapshot) => {
       snapshot.forEach((dataDb) => {
@@ -97,7 +114,6 @@ function postDb (data) {
       resolve(data)
     })
   }).then((data) => {
-    console.log(data)
     var newContrib = ref.push()
     newContrib.set({
       'author': data.screen_name,
@@ -116,7 +132,7 @@ function postDb (data) {
 }
 function generateSlug (data) {
   let slug = ''
-  let day = data.date[1]
+  let day = data.day
   if (day < 10) {
     slug = '0'
   }

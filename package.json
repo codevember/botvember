@@ -7,7 +7,6 @@
     "firebase": "^3.5.3",
     "phantom": "^3.0.2",
     "phantomjs-prebuilt": "^2.1.13",
-    "request": "^2.78.0",
     "twit": "^2.2.5"
   },
   "devDependencies": {},
