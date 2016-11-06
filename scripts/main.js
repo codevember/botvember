@@ -1,7 +1,6 @@
 'use strict'
 const Twit = require('twit')
 const key = require('../config/config.json')
-const request = require('request')
 const phantom = require('phantom')
 const firebase = require('firebase')
 
@@ -22,13 +21,13 @@ const filter = '#codevember'
 let stream = T.stream('statuses/filter', { track: filter })
 console.log(`Stream Started : ${filter}`)
 stream.on('tweet', (tweet) => {
-  var penData
-  tweet.entities.urls[0].expanded_url && (penData = expendUrl(tweet.entities.urls[0].expanded_url))
-  request(penData.penUrl, function (err, res, body) {
-    err && console.warn(err)
-    createDocument(body)
+  if (!tweet.retweeted && tweet.entities.urls[0]) {
+    var penData
+    tweet.entities.urls[0].expanded_url && (penData = expendUrl(tweet.entities.urls[0].expanded_url))
+    penData.screen_name = tweet.user.screen_name
+    penData.penDetails && createDocument(penData)
     favTweet(tweet.id_str)
-  })
+  }
 })
 
 function expendUrl (url) {
@@ -39,6 +38,8 @@ function expendUrl (url) {
   data.pen = regResult[4]
   data.penUrl = `http://codepen.io/${data.user}/pen/${data.pen}`
   data.fullUrl = `http://codepen.io/${data.user}/full/${data.pen}`
+  data.imgUrl = `http://codepen.io/${data.user}/pen/${data.pen}/image/small.png`
+  data.penDetails = `http://codepen.io/${data.user}/details/${data.pen}`
   return data
 }
 
@@ -49,12 +50,77 @@ function favTweet (tweetId) {
   })
 }
 
-function createDocument (content) {
-  console.log(content)
-  let instance = null
+function createDocument (data) {
+  let phInstance = null
+  let phPage = null
   phantom.create()
-  .then((phantomInstance) => {
-    instance = phantomInstance
-    return instance.createPage()
+    .then(instance => {
+      phInstance = instance
+      return instance.createPage()
+    })
+    .then(page => {
+      phPage = page
+      return page.open(data.penDetails)
+    })
+    .then(status => {
+      console.log(status)
+      return phPage.property('content')
+    })
+    .then(generated => {
+      phPage.evaluate(function () {
+        return [
+          document.getElementsByClassName('pen-title-link')[0].innerHTML.trim(),
+          document.querySelector('time').innerHTML
+        ]
+      }).then(html => {
+        data.title = html[0]
+        data.date = html[1].trim().split(/\s* \s*/)
+        data.date[1] = data.date[1].slice(0, -1)
+        data.day = parseInt(data.date[1], 10)
+        postDb(data)
+      })
+    })
+    .catch(error => {
+      console.log(error)
+      phInstance.exit()
+    })
+}
+function postDb (data) {
+  console.log(data)
+  new Promise((resolve, reject) => {
+    ref.once('value').then((snapshot) => {
+      snapshot.forEach((dataDb) => {
+        if (data.fullUrl === dataDb.val().url) {
+          reject()
+        }
+      })
+      resolve(data)
+    })
+  }).then((data) => {
+    console.log(data)
+    var newContrib = ref.push()
+    newContrib.set({
+      'author': data.screen_name,
+      'day': data.day,
+      'slug': generateSlug(data),
+      'image': data.imgUrl,
+      'title': data.title,
+      'url': data.fullUrl
+    })
+    console.log(`Added ${data.title}`)
+  }, (rej) => {
+    console.log(`Already in Database ${rej}`)
+  }).catch((err) => {
+    console.log(`Catch an Error : ${err}`)
   })
+}
+function generateSlug (data) {
+  let slug = ''
+  let day = data.date[1]
+  if (day < 10) {
+    slug = '0'
+  }
+  slug += day + ' ' + data.title + ' ' + data.screen_name
+  slug = slug.replace(/\s/g, '-').toLowerCase()
+  return slug
 }
