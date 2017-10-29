@@ -20,36 +20,42 @@ class Botvember {
   }
   getCodepenData (tweet, res, err) {
     let penData = []
-    console.log(tweet)
     for (var i = 0; i < tweet.entities.urls.length; i++) {
-      if (this.expendUrl(tweet.entities.urls[i].expanded_url)) {
-        penData.push(this.getPenData())
+      let rawData = this.expendUrl(tweet.entities.urls[i].expanded_url)
+      if (rawData) {
+        penData.push(this.getPenData(rawData, tweet.user.screen_name))
+        console.log('Pen Data :')
+        console.log(penData)
       }
     }
     if (penData.length > 0) {
-      penData.screen_name = tweet.user.screen_name
-      typeof res === 'function' && res()
-      // penData.penDetails && createDocument(penData)
+      typeof res === 'function' && res('Success')
     } else {
-      typeof err === 'function' && err()
+      typeof err === 'function' && err('Error')
     }
   }
   expendUrl (url) {
     var regResult = this.regex.exec(url)
+    console.log('regResult')
+    console.log(regResult)
     if (regResult != null) {
       return regResult
     } else {
       return null
     }
   }
-  getPenData (penData) {
+  getPenData (penData, screenName) {
     let data = {}
-    data.user = penData[2]
-    data.pen = penData[4]
-    data.penUrl = `${this.codepenAPI}${data.user}/pen/${data.pen}`
-    data.fullUrl = `${this.codepenAPI}${data.user}/full/${data.pen}`
-    data.imgUrl = `${this.codepenAPI}${data.user}/pen/${data.pen}/image/small.png`
-    data.penDetails = `${this.codepenAPI}${data.user}/details/${data.pen}`
+    if (penData && penData.length > 3) {
+      data.user = penData[2]
+      data.screen_name = screenName
+      data.pen = penData[4]
+      data.penUrl = `${this.codepenAPI}${data.user}/pen/${data.pen}`
+      data.fullUrl = `${this.codepenAPI}${data.user}/full/${data.pen}`
+      data.imgUrl = `${this.codepenAPI}${data.user}/pen/${data.pen}/image/small.png`
+      data.penDetails = `${this.codepenAPI}${data.user}/details/${data.pen}`
+    }
+    data.penDetails && this.createDocument(data)
     return data
   }
   createDocument (data) {
@@ -93,8 +99,9 @@ class Botvember {
       })
   }
   postDb (data) {
-    this.existInBase(data).then((data) => {
+    this.existInBase(data).then(data => {
       var newContrib = this.ref.push()
+      console.log(data)
       newContrib.set({
         'author': data.screen_name,
         'day': data.day,
@@ -113,7 +120,7 @@ class Botvember {
   existInBase (data) {
     return new Promise((resolve, reject) => {
       this.ref.once('value').then((snapshot) => {
-        snapshot.forEach((dataDb) => {
+        snapshot.forEach(dataDb => {
           if (data.fullUrl === dataDb.val().url) {
             reject('Already in base')
           }
