@@ -18,10 +18,11 @@ class Botvember {
     this.db = admin.database()
     this.ref = this.db.ref(`${this.year}/contributions`)
   }
-  isCodepenLink (tweet, res, err) {
+  getCodepenData (tweet, res, err) {
     let penData = []
+    console.log(tweet)
     for (var i = 0; i < tweet.entities.urls.length; i++) {
-      if( this.expendUrl(tweet.entities.urls[i].expanded_url)) {
+      if (this.expendUrl(tweet.entities.urls[i].expanded_url)) {
         penData.push(this.getPenData())
       }
     }
