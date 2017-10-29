@@ -1,5 +1,6 @@
 .DS_Store
 node_modules/
 config/config.json
+config/codevember.json
 config/database.json
 *.log

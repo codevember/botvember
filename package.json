@@ -5,6 +5,7 @@
   "main": "scripts/main.js",
   "dependencies": {
     "firebase": "^3.5.3",
+    "firebase-admin": "^5.4.3",
     "phantom": "^3.0.2",
     "phantomjs-prebuilt": "^2.1.13",
     "twit": "^2.2.5"
