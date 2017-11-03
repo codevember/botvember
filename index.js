@@ -16,7 +16,7 @@ const T = new Twit({
   access_token_secret: key.access_token_secret
 })
 
-const filter = '#codevember'
+const filter = ['#codevember', '@codevember']
 
 let stream = T.stream('statuses/filter', { track: filter })
 console.log(`Stream Started : ${filter}`)
