@@ -27,19 +27,19 @@ stream.on('tweet', (tweet) => {
       blacklisted = true
     }
   })
+  if (!tweet.retweeted) favTweet(tweet)
   if (!tweet.retweeted && tweet.entities.urls[0] && !blacklisted) {
     bot.getCodepenData(tweet, res => {
       console.log(res)
-      favTweet(tweet.id_str)
     }, err => {
       console.log(err)
     })
   }
 })
 
-function favTweet (tweetId) {
-  T.post('favorites/create', { id: tweetId }, function (err, data, response) {
-    err && console.log(err)
-    response && console.log('Tw Fav !')
+function favTweet (tweet) {
+  T.post('favorites/create', { id: tweet.id_str }, function (err, data, response) {
+    if (err) console.log('❌  Erreur fav ' + tweet.user.screen_name)
+    else console.log('❤️ ️ Tw Fav : ' +  tweet.user.screen_name)
   })
 }
